@@ -1,0 +1,2 @@
+#define THREAD_PRE_BLOCK 256
+#define DATA_NUM (1024 * 1024)

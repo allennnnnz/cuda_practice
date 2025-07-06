@@ -1,4 +1,4 @@
-//使用global memory 的 baseline
+//使用share memory 的 baseline
 #include <iostream>
 #include <cuda_runtime.h>
 #include <fstream>
@@ -6,8 +6,12 @@
 #include <ctime>
 #include "config.h"
 
-__global__ void kernel(int *doutput) {
+__global__ void dot_array_p1(int *doutput) {
     int* outputc_begin = blockDim.x * blockIdx.x + doutput;
+
+    __shared__ int shared_output[THREAD_PRE_BLOCK];
+
+    shared_output[threadIdx.x] = outputc_begin[threadIdx.x];
 
     //相加個點
     for(int i=1;i<blockDim.x;i*=2){
@@ -18,7 +22,7 @@ __global__ void kernel(int *doutput) {
     }
 }
 
-int add_cpu(int* input, int N) {
+int dot_product_cpu(int* input, int N) {
     int result = 0;
     for (int i = 0; i < N; i++) {
         result += input[i];
@@ -36,7 +40,7 @@ for (int i = 0; i < DATA_NUM; i++) {
     int* houtput = (int*)malloc(DATA_NUM*sizeof(int));
 
     //CPU計算
-    int result = add_cpu(hinput, DATA_NUM);
+    int result = dot_product_cpu(hinput, DATA_NUM);
     printf("CPU dot product result: %d\n", result);
 
     //宣告gpu記憶體空間
@@ -48,15 +52,14 @@ for (int i = 0; i < DATA_NUM; i++) {
     cudaEvent_t start1, stop1, start2, stop2;
     cudaEventCreate(&start1);
     cudaEventCreate(&stop1);
-    cudaEventCreate(&start2);
-    cudaEventCreate(&stop2);
+    
     float kernel1_ms = 0.0f;
 
     //Kernel運算
     int numOfBlocks = DATA_NUM / THREAD_PRE_BLOCK;
     //Kernel 1
     cudaEventRecord(start1);
-    kernel<<<numOfBlocks, THREAD_PRE_BLOCK>>>(doutput);
+    dot_array_p1<<<numOfBlocks, THREAD_PRE_BLOCK>>>(doutput);
     cudaEventRecord(stop1);
     cudaEventSynchronize(stop1);
     cudaEventElapsedTime(&kernel1_ms, start1, stop1);
